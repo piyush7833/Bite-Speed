@@ -1,64 +1,40 @@
 /**
- * Global Styles - Chatbot Flow Builder
+ * Global Styles
  * 
- * This file combines multiple CSS frameworks and custom styles:
- * 1. React Flow - Core flow editor styles
- * 2. Tailwind CSS - Utility-first styling framework
- * 3. Custom Toast Styles - Enhanced notification appearance
- * 
- * Import Order is Critical:
- * - React Flow styles must come first to avoid CSS conflicts
- * - Tailwind base/components/utilities follow
- * - Custom overrides come last for proper cascade
+ * Import order matters: React Flow first, then Tailwind, then custom overrides
+ * Includes custom toast styling to match app theme
  */
 
-/* React Flow Core Styles - Must Import First */
-/* These styles provide the basic functionality for:
-   - Canvas rendering and interaction
-   - Node and edge positioning
-   - Handle (connection point) styling
-   - Zoom and pan controls
-   - Background grid/dots patterns */
+/* React Flow - Must come first to avoid CSS conflicts */
 @import 'reactflow/dist/style.css';
 
-/* Tailwind CSS Framework */
-/* Provides utility classes for:
-   - Layout (flex, grid, spacing)
-   - Typography (fonts, sizes, weights)
-   - Colors (backgrounds, borders, text)
-   - Responsive design (breakpoints)
-   - Component styling (buttons, inputs) */
+/* Tailwind CSS utility classes */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Toast Notification Styles */
-/* Enhances react-toastify with theme-consistent styling:
-   - Matches application color scheme
-   - Provides better visual hierarchy
-   - Improves readability and user experience */
+/* Custom toast styling to match app theme */
 
-/* Error Toast Styling */
+/* Error toasts */
 .Toastify__toast--error {
   @apply bg-red-50 border border-red-200 text-red-800;
 }
 
-/* Success Toast Styling */
+/* Success toasts */
 .Toastify__toast--success {
   @apply bg-green-50 border border-green-200 text-green-800;
 }
 
-/* Base Toast Container */
+/* Base toast styling */
 .Toastify__toast {
   @apply rounded-lg shadow-lg;
 }
 
-/* Progress Bar Styling for Error States */
+/* Progress bars */
 .Toastify__progress-bar--error {
   @apply bg-red-400;
 }
 
-/* Progress Bar Styling for Success States */
 .Toastify__progress-bar--success {
   @apply bg-green-400;
 }

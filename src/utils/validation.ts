@@ -1,123 +1,92 @@
 import { Node, Edge } from 'reactflow';
 
-// TypeScript interface for validation function return values
 export interface ValidationResult {
-  isValid: boolean;      // Whether the flow passes validation
-  errorMessage?: string; // Error description if validation fails
+  isValid: boolean;
+  errorMessage?: string;
 }
 
 /**
- * Flow Validation Utility - Business Logic for Chatbot Flows
+ * Flow validation utilities for chatbot flows
  * 
- * Purpose:
- * This module contains the core business logic for validating chatbot flows
- * before they can be saved. It ensures flows follow proper chatbot conversation
- * patterns and prevent invalid flow structures.
+ * Business Rules:
+ * - Single starting node (no incoming connections) required for clear entry point
+ * - All nodes must be connected (no isolated islands)
+ * - Target handles can accept multiple connections, source handles limited to one
  * 
- * Business Rules for Chatbot Flows:
- * 1. Empty flows (0 nodes) are always valid
- * 2. Single-node flows are always valid (simple responses)
- * 3. Multi-node flows must have exactly ONE starting point (entry node)
- * 4. Starting points are nodes with no incoming connections
- * 5. Multiple starting points create ambiguous conversation flows
- * 
- * Real-world Application:
- * - Starting node: "Welcome! How can I help you?"
- * - Middle nodes: "Thanks for your question..."
- * - End nodes: "Have a great day!"
- * 
- * Invalid Pattern: Multiple nodes with no incoming connections
- * This would mean multiple conversation starting points, which is confusing
- * for users and unclear for chatbot logic.
+ * Used before saving to ensure valid chatbot conversation structure
  */
 
-/**
- * Validates a chatbot flow before saving
- * 
- * Validation Logic:
- * 1. Check if flow is empty or single-node (always valid)
- * 2. For multi-node flows, identify nodes without incoming connections
- * 3. Ensure maximum one "starting point" node exists
- * 4. Return appropriate validation result with error message
- * 
- * Algorithm Details:
- * - Uses Array.filter to find nodes without incoming edges
- * - Uses Array.some to check if any edge targets each node
- * - Compares count against business rule (max 1 starting node)
- * 
- * @param nodes - Array of React Flow nodes in the current flow
- * @param edges - Array of React Flow edges (connections) in the current flow
- * @returns ValidationResult object with isValid flag and optional error message
- */
+// Main validation function - checks flow structure before saving
+// Returns error messages explaining why validation failed
 export const validateFlow = (nodes: Node[], edges: Edge[]): ValidationResult => {
-  // Early return for simple flows
-  // Single-node or empty flows don't need validation
+  // Empty or single-node flows are always valid
   if (nodes.length <= 1) {
     return { isValid: true };
   }
 
-  // Find all nodes that have no incoming connections
-  // These are potential "starting points" for the conversation flow
-  const nodesWithoutIncomingEdges = nodes.filter(node => {
-    // Check if ANY edge has this node as its target
-    return !edges.some(edge => edge.target === node.id);
+  // Build set of all nodes that have connections
+  const connectedNodeIds = new Set<string>();
+  edges.forEach(edge => {
+    connectedNodeIds.add(edge.source); // Track connected nodes
+    connectedNodeIds.add(edge.target);
   });
-
-  // Business Rule Validation: Maximum one starting point allowed
-  // Multiple starting points create ambiguous conversation flows
-  if (nodesWithoutIncomingEdges.length > 1) {
+  
+  // Find completely isolated nodes (no connections at all)
+  const disconnectedNodes = nodes.filter(node => !connectedNodeIds.has(node.id));
+  
+  if (disconnectedNodes.length > 1) { // Multiple islands not allowed
     return {
       isValid: false,
-      errorMessage: `Cannot save Flow` // Matches UI design requirement
+      errorMessage: `Cannot save Flow: ${disconnectedNodes.length} nodes are completely disconnected. Please connect all nodes to create a valid conversation flow.`
     };
   }
 
-  // If we reach here, the flow is valid
+  // If there's exactly one disconnected node and other connected nodes, it might be valid
+  // but we need to check the main flow structure
+  if (disconnectedNodes.length === 1 && connectedNodeIds.size > 0) {
+    return {
+      isValid: false,
+      errorMessage: `Cannot save Flow: 1 node is disconnected from the main flow. Please connect all nodes to create a valid conversation path.`
+    };
+  }
+
+  const nodesWithoutIncomingEdges = nodes.filter(node => {
+    return !edges.some(edge => edge.target === node.id); // Find potential starting nodes
+  });
+
+  if (nodesWithoutIncomingEdges.length > 1) {
+    return {
+      isValid: false,
+      errorMessage: `Cannot save Flow: ${nodesWithoutIncomingEdges.length} nodes have no incoming connections. Only one starting node is allowed in a chatbot flow.`
+    };
+  }
+
+  if (nodes.length > 1 && nodesWithoutIncomingEdges.length === 0) {
+    return {
+      isValid: false,
+      errorMessage: `Cannot save Flow: No starting node found. At least one node must have no incoming connections to serve as the conversation entry point.`
+    };
+  }
+
   return { isValid: true };
 };
 
-/**
- * Creates a clean, serializable flow data structure for saving
- * 
- * Purpose:
- * - Converts React Flow's internal data structures to clean JSON
- * - Removes React-specific properties and UI state
- * - Creates a portable format for saving, exporting, or API calls
- * - Maintains only essential flow information
- * 
- * Data Transformation:
- * - Extracts core node properties: id, type, position, data
- * - Extracts core edge properties: id, source, target, handles
- * - Removes internal React Flow properties (selected, dragging, etc.)
- * - Results in clean JSON suitable for storage or transmission
- * 
- * Use Cases:
- * 1. Saving flows to local storage
- * 2. Exporting flows for backup
- * 3. Sending flows to backend APIs
- * 4. Logging flows for debugging
- * 
- * @param nodes - Array of React Flow nodes to serialize
- * @param edges - Array of React Flow edges to serialize
- * @returns Clean object containing essential flow data only
- */
+// Create clean flow data for saving/export
+// Strips out React Flow internal properties, keeping only essential data
 export const createFlowData = (nodes: Node[], edges: Edge[]) => {
   return {
-    // Transform nodes to include only essential properties
     nodes: nodes.map(node => ({
-      id: node.id,           // Unique identifier
-      type: node.type,       // Node type (textNode, etc.)
-      position: node.position, // X,Y coordinates on canvas
-      data: node.data        // Custom data (text content, etc.)
+      id: node.id,
+      type: node.type,
+      position: node.position,
+      data: node.data // Just the essential properties
     })),
-    
-    // Transform edges to include only connection information
     edges: edges.map(edge => ({
-      id: edge.id,                   // Unique edge identifier
-      source: edge.source,           // Source node ID
-      target: edge.target,           // Target node ID
-      sourceHandle: edge.sourceHandle, // Source handle identifier (if any)
-      targetHandle: edge.targetHandle  // Target handle identifier (if any)
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle,
+      targetHandle: edge.targetHandle
     }))
   };
 };
